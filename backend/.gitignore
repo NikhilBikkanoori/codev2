@@ -1,0 +1,30 @@
+# Node dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs and diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Build artifacts & coverage
+coverage/
+dist/
+.tmp/
+.cache/
+
+# Uploaded or generated files
+uploads/
+.DS_Store
+Thumbs.db
