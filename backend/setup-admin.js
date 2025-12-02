@@ -5,6 +5,7 @@ require('dotenv').config();
 const userSchema = new mongoose.Schema({
   email: String,
   name: String,
+  username: String,
   password: String,
   role: String,
 });
@@ -33,6 +34,7 @@ async function setupAdminCredentials() {
       const newAdmin = await User.create({
         email: 'admin@dropshield.local',
         name: 'Administrator',
+        username: 'admin',
         password: hashedPassword,
         role: 'admin',
       });
@@ -47,6 +49,7 @@ async function setupAdminCredentials() {
 
       admin.email = 'admin@dropshield.local';
       admin.name = 'Administrator';
+      admin.username = 'admin';
       admin.password = hashedPassword;
 
       await admin.save();

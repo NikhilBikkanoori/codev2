@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ const Login = () => {
     setError('');
     setLoading(true);
     
-    const result = await login({ email, password });
+    const result = await login({ identifier, password });
     
     if (result.success) {
       navigate('/dashboard');
@@ -32,11 +32,11 @@ const Login = () => {
         {error && <div className="bg-red-100 text-red-700 p-2 rounded mb-4">{error}</div>}
         <form onSubmit={handleSubmit}>
           <input 
-            type="email" 
-            placeholder="Email" 
+            type="text" 
+            placeholder="Email or username" 
             className="w-full p-2 mb-4 border rounded" 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required 
           />
           <input 

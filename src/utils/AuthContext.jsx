@@ -35,7 +35,21 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
-      const response = await loginAPI(credentials);
+      const payload = (() => {
+        const { identifier, email, username, password } = credentials;
+        const core = { password };
+        if (!password) return null;
+        if (identifier) return { ...core, identifier };
+        if (email) return { ...core, email };
+        if (username) return { ...core, username };
+        return null;
+      })();
+
+      if (!payload) {
+        return { success: false, error: 'Email or username and password are required' };
+      }
+
+      const response = await loginAPI(payload);
       const { token: tk, user: rawUser } = response.data;
       localStorage.setItem('token', tk);
       setToken(tk);

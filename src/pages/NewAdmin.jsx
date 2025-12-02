@@ -2,12 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 
-const mapUsernameToEmail = (username) => {
-  if (!username) return '';
-  if (username === 'admin') return 'admin@dropshield.local';
-  return `${username}@dropshield.local`;
-};
-
 const NewAdmin = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -21,8 +15,8 @@ const NewAdmin = () => {
     setError('');
     setLoading(true);
     try {
-      const email = mapUsernameToEmail(username.trim().toLowerCase());
-      const result = await login({ email, password });
+      const identifier = username.trim();
+      const result = await login({ identifier, password });
       if (!result.success) throw new Error(result.error || 'Login failed');
       if (result.user.role !== 'admin') throw new Error('Not an admin account');
       navigate('/admin');

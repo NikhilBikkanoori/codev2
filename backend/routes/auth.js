@@ -10,8 +10,8 @@ router.post('/register', async (req, res) => {
     const { name, email, username, password, role } = req.body;
     if (!name || !email || !password) return res.status(400).json({ msg: 'Missing fields' });
 
-    const normalizedEmail = email.trim();
-    const normalizedUsername = username?.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = (username?.trim() || '').toLowerCase();
 
     let user = await User.findOne({ email: normalizedEmail });
     if (user) return res.status(400).json({ msg: 'Email already registered' });
@@ -47,15 +47,33 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ msg: 'Missing fields' });
-    const user = await User.findOne({ email });
+    const { email, username, identifier, password } = req.body;
+    if (!password) return res.status(400).json({ msg: 'Missing fields' });
+
+    const rawIdentifier = identifier ?? email ?? username;
+    if (!rawIdentifier) return res.status(400).json({ msg: 'Missing fields' });
+    const normalizedIdentifier = rawIdentifier.trim().toLowerCase();
+    const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const exactMatch = (field) => ({ [field]: normalizedIdentifier });
+    const caseInsensitiveRegex = new RegExp(`^${escapeRegex(normalizedIdentifier)}$`, 'i');
+
+    const matchQueries = normalizedIdentifier.includes('@')
+      ? [exactMatch('email'), { email: caseInsensitiveRegex }]
+      : [exactMatch('username'), exactMatch('email'), { username: caseInsensitiveRegex }, { email: caseInsensitiveRegex }];
+
+    let user;
+    for (const query of matchQueries) {
+      user = await User.findOne(query);
+      if (user) break;
+    }
+
     if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
     const payload = { user: { id: user.id, role: user.role } };
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'devsecret', { expiresIn: '7d' });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, username: user.username } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).send('Server error');

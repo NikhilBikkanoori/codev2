@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 
 const StudentLogin = () => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ const StudentLogin = () => {
     setError('');
     setLoading(true);
     
-    const result = await login({ email, password });
+    const result = await login({ identifier, password });
     
     if (result.success) {
       navigate('/dashboard');
@@ -40,8 +40,8 @@ const StudentLogin = () => {
 
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#A2F4F9', fontWeight: 500 }}>Email</label>
-              <input type="email" placeholder="Enter your email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', color:'black',padding: '0.75rem', border: '1px solid #ccc', borderRadius: '6px', fontSize: '1rem', boxSizing: 'border-box' }} required />
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#A2F4F9', fontWeight: 500 }}>Email or Username</label>
+              <input type="text" placeholder="Enter email or username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} style={{ width: '100%', color:'black',padding: '0.75rem', border: '1px solid #ccc', borderRadius: '6px', fontSize: '1rem', boxSizing: 'border-box' }} required />
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
