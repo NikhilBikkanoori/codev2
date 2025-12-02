@@ -27,6 +27,56 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Generic helpers
 function asyncHandler(fn){ return (req,res,next)=> Promise.resolve(fn(req,res,next)).catch(next); }
 
+// Utility helpers to keep relationship fields from crashing when admins type names/codes instead of ObjectIds
+const { Types } = mongoose;
+const isObjectId = (value) => Types.ObjectId.isValid(String(value || '').trim());
+const unwrapId = (value) => {
+  if (!value) return value;
+  if (typeof value === 'object') {
+    if (value._id) return value._id;
+    if (value.id) return value.id;
+  }
+  return value;
+};
+
+const normalizeInput = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  return typeof value === 'string' ? value.trim() : value;
+};
+
+const tidyString = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  return trimmed || undefined;
+};
+
+const resolveDepartmentField = async (raw) => {
+  const normalized = normalizeInput(unwrapId(raw));
+  if (normalized === undefined) return { provided: false };
+  if (normalized === null || normalized === '') return { provided: true, value: null };
+  if (isObjectId(normalized)) return { provided: true, value: normalized };
+
+  const department = await Department.findOne({
+    $or: [{ code: normalized }, { name: normalized }, { id: normalized }]
+  });
+  if (department) return { provided: true, value: department._id };
+  return { provided: true, error: `Department "${normalized}" not found. Use an existing department code/name or leave blank.` };
+};
+
+const resolveParentField = async (raw) => {
+  const normalized = normalizeInput(unwrapId(raw));
+  if (normalized === undefined) return { provided: false };
+  if (normalized === null || normalized === '') return { provided: true, value: null };
+  if (isObjectId(normalized)) return { provided: true, value: normalized };
+
+  const parent = await Parent.findOne({
+    $or: [{ pid: normalized }, { parentId: normalized }, { name: normalized }]
+  });
+  if (parent) return { provided: true, value: parent._id };
+  return { provided: true, error: `Parent "${normalized}" not found. Provide a valid parent PID/name or leave blank.` };
+};
+
 // Students CRUD
 router.get('/students', auth, adminOnly, asyncHandler(async (req,res)=>{
   const items = await Student.find()
@@ -36,12 +86,37 @@ router.get('/students', auth, adminOnly, asyncHandler(async (req,res)=>{
   res.json(items);
 }));
 router.post('/students', auth, adminOnly, asyncHandler(async (req,res)=>{
-  const { roll, name } = req.body;
-  if(!roll || !name) return res.status(400).json({ msg: 'Name and roll required' });
-  const exists = await Student.findOne({ roll });
+  const rollValue = tidyString(req.body.roll);
+  const nameValue = tidyString(req.body.name);
+  if(!rollValue || !nameValue) return res.status(400).json({ msg: 'Name and roll required' });
+
+  const exists = await Student.findOne({ roll: rollValue });
   if(exists) return res.status(400).json({ msg: 'Roll already exists' });
+
+  const deptResolution = await resolveDepartmentField(req.body.deptId);
+  if (deptResolution.error) return res.status(400).json({ msg: deptResolution.error });
+  const parentResolution = await resolveParentField(req.body.parentId);
+  if (parentResolution.error) return res.status(400).json({ msg: parentResolution.error });
+
+  const payload = {
+    name: nameValue,
+    roll: rollValue,
+    email: req.body.email || '',
+    phone: req.body.phone || '',
+    gender: req.body.gender || '',
+    dob: req.body.dob || undefined,
+    address: req.body.address || '',
+    mentorId: isObjectId(req.body.mentorId) ? req.body.mentorId : undefined,
+    userId: req.body.userId,
+    fileName: req.body.fileName,
+    fileData: req.body.fileData
+  };
+
+  if (deptResolution.provided) payload.deptId = deptResolution.value;
+  if (parentResolution.provided) payload.parentId = parentResolution.value;
+
   try {
-    const s = await Student.create(req.body);
+    const s = await Student.create(payload);
     res.status(201).json(s);
   } catch(err){
     console.error('Student create error:', err.message);
@@ -50,7 +125,39 @@ router.post('/students', auth, adminOnly, asyncHandler(async (req,res)=>{
   }
 }));
 router.put('/students/:id', auth, adminOnly, asyncHandler(async (req,res)=>{
-  const updated = await Student.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const updates = {};
+
+  if (req.body.name !== undefined) {
+    const nameValue = tidyString(req.body.name);
+    if (!nameValue) return res.status(400).json({ msg: 'Name cannot be empty' });
+    updates.name = nameValue;
+  }
+
+  if (req.body.roll !== undefined) {
+    const rollValue = tidyString(req.body.roll);
+    if (!rollValue) return res.status(400).json({ msg: 'Roll cannot be empty' });
+    const exists = await Student.findOne({ roll: rollValue, _id: { $ne: req.params.id } });
+    if (exists) return res.status(400).json({ msg: 'Roll already exists' });
+    updates.roll = rollValue;
+  }
+
+  if (req.body.email !== undefined) updates.email = tidyString(req.body.email) ?? '';
+  if (req.body.phone !== undefined) updates.phone = tidyString(req.body.phone) ?? '';
+  if (req.body.gender !== undefined) updates.gender = req.body.gender || '';
+  if (req.body.dob !== undefined) updates.dob = req.body.dob || undefined;
+  if (req.body.address !== undefined) updates.address = tidyString(req.body.address) ?? '';
+  if (req.body.fileName !== undefined) updates.fileName = req.body.fileName;
+  if (req.body.fileData !== undefined) updates.fileData = req.body.fileData;
+
+  const deptResolution = await resolveDepartmentField(req.body.deptId);
+  if (deptResolution.error) return res.status(400).json({ msg: deptResolution.error });
+  if (deptResolution.provided) updates.deptId = deptResolution.value;
+
+  const parentResolution = await resolveParentField(req.body.parentId);
+  if (parentResolution.error) return res.status(400).json({ msg: parentResolution.error });
+  if (parentResolution.provided) updates.parentId = parentResolution.value;
+
+  const updated = await Student.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   if(!updated) return res.status(404).json({ msg: 'Student not found' });
   res.json(updated);
 }));

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
+  username: { type: String, unique: true, sparse: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['student','mentor','parent','counselor','admin'], default: 'student' },
   createdAt: { type: Date, default: Date.now }

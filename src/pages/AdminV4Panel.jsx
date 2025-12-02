@@ -203,7 +203,8 @@ const AdminV4Panel = () => {
 
   const handleCredentialCreate = async (name, emailFallback, username, password, role) => {
     const trimmedPassword = password?.trim();
-    const normalizedEmail = (emailFallback?.trim()) || (username?.trim() ? `${username.trim()}@dropshield.local` : null);
+    const trimmedUsername = username?.trim() || '';
+    const normalizedEmail = (emailFallback?.trim()) || (trimmedUsername ? `${trimmedUsername}@dropshield.local` : null);
     if(!normalizedEmail || !trimmedPassword) {
       return { id: null, error: 'Email/username and password are required to create login credentials.' };
     }
@@ -223,7 +224,13 @@ const AdminV4Panel = () => {
       const res = await fetch(`${API_BASE_URL}/auth/register`, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ name: safeName, email: normalizedEmail, password: trimmedPassword, role })
+        body: JSON.stringify({
+          name: safeName,
+          email: normalizedEmail,
+          username: trimmedUsername || undefined,
+          password: trimmedPassword,
+          role
+        })
       });
       const data = await parseResponseBody(res);
       if(res.ok && data.user?.id) {
